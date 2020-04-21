@@ -25,19 +25,14 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
 #define GPIO_E_PUPDR		((volatile unsigned short *) 	(GPIO_E+0x0E))
 #define GPIO_E_OSPEEDR		((volatile unsigned int *)		(GPIO_E+0x08)) // OUTPUT SPEED REGISTER
 
-#define BARGRAPH			((volatile unsigned char *)	(GPIO_E+0x14)) // char?? or short??
-
-
-
-
-
+#define BARGRAPH			((volatile unsigned char *)		(GPIO_E+0x14)) // char?? or short??
 
 
 void app_init(void)
 {	
 	* GPIO_E_MODER = 0x00005555;
 	* GPIO_E_OTYPER = 0x00000000;
-	* GPIO_E_OSPEEDR = 0x00000000; // OKLART OM DENNA BEHÖVS(?)
+	//* GPIO_E_OSPEEDR = 0x00000000; // OKLART OM DENNA BEHÖVS(?)
 
 }
 
@@ -51,29 +46,28 @@ void delay_250ns(void){
 }
 
 void delay_mikro(int us){
-
-	while(us > 0){
+	#ifdef SIMULATOR
+		us = us/4000;
+		us++;
+	#endif
+	
 		delay_250ns();
 		delay_250ns();
 		delay_250ns();
 		delay_250ns();
-	}
+	
 }
 
 void delay_mili(int ms){
 	#ifdef SIMULATOR
-		ms = ms/1000;
+		ms = ms/4000;
 		ms++;
 	#endif
 	
-	int i = 0; 
-	for( i >= 0; i = 1000; i++)
+	
+		delay_mikro(1000);
+		
 }
-
-
-
-
-
 
 void main(void)
 {
