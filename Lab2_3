@@ -23,12 +23,10 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
 #define GPIO_E_OTYPER		((volatile unsigned short *)	(GPIO_E+0x05))
 #define GPIO_E_PUPDR		((volatile unsigned short *) 	(GPIO_E+0x0E))
 #define GPIO_E_OSPEEDR		((volatile unsigned int *)		(GPIO_E+0x08))
-
 #define GPIO_E_ODR_LOW 		((volatile unsigned char *)	 	(GPIO_E+0x14))	
 #define GPIO_E_ODR_HIGH 	((volatile unsigned char *)		(GPIO_E+0x15))
 #define GPIO_E_IDR_LOW		((volatile unsigned char *)		(GPIO_E+0x10))	
 #define GPIO_E_IDR_HIGH		((volatile unsigned char *)		(GPIO_E+0x11))
-
 
 /* Masker för kontrollbitar */
 #define	B_E			0x40			// ENABLE-SIGNAL
@@ -38,12 +36,18 @@ __asm__ volatile(".L1: B .L1\n");				/* never return */
  
 
 void init_app(void){
-	
 	* GPIO_E_MODER = 0x55555555;	//E0-7 utgång såväl som E8-15
+	* GPIO_E_OTYPER = 0x00000000;
+	* GPIO_E_OSPEEDR = 0x00000000;
+	// TODO
 }
 void ascii_init( void ){
+	ascii_write_cmd(1);
+	ascii_write_cmd(0x38);
+	ascii_write_cmd(0x0E);
+	ascii_write_cmd(0x04);
+	// TODO
 }
-
 
 void ascii_ctrl_bit_set( char x ){
 	/* x: bitmask bit are 1 to set */
@@ -88,12 +92,25 @@ void ascii_write_controller( char c ){
 }
 
 void ascii_write_cmd( char command ){
-	command = *GPIO_E_ODR_LOW;
-	// TODO
+	ascii_ctrl_bit_clear( B_RS );	// RS = 0
+	ascii_ctrl_bit_clear( B_RW );  	// RW = 0
+	ascii_write_controller( command );	
 }
 
 void ascii_write_data ( unsigned char data ){
-	// TODO
+	ascii_ctrl_bit_set( B_RS ); 	// RS = 1	 			
+	ascii_ctrl_bit_clear( B_RW );	// RW = 0
+	ascii_write_controller( data );	
+}
+
+char ascii_read_data( void ){
+	char c;
+	*GPIO_E_MODER = 0x00005555;
+	ascii_ctrl_bit_set( B_RW );  	// RW = 1
+	ascii_ctrl_bit_set( B_RS );		// RS = 1
+	c = ascii_read_controller();
+	*GPIO_E_MODER = 0x55555555;
+	return c;
 }
 	
 void delay_250ns(void){
@@ -114,20 +131,31 @@ void delay_mikro(int us){
 		delay_250ns();
 		delay_250ns();
 }
-
-/*void ascii_gotoXY(int row, int col)	{
-	int row[] = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
-	int col[] = {1,2};
-	int adress = row - 1;
-	if ( col==2 ){
-		adress = adress + 0x40;
-	}
-	ascii_write_controller(0x80 | adress);
+void delay_mili(int ms){
+	#ifdef SIMULATOR
+		ms = ms/4000;
+		ms++;
+	#endif
+		delay_mikro(1000);		
 }
-*/
 
+ascii_write_char( char c ){
+	while((ascii_read_status() & 0x80) == 0x80 ){}
+	delay_mikro(8);
+	ascii_write_data(c);
+	delay_mili(2);	
+}
 
-
+void ascii_gotoXY(int row, int col)	{
+	/*int row[] = { 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+	int col[] = {1,2}; */
+	
+	int address = row - 1;
+	if ( col == 2 ){
+		address = address + 0x40;
+	}
+	ascii_write_cmd(0x80 | address);
+}
 
 void main(int argc, char **argv)
 {
@@ -137,13 +165,13 @@ void main(int argc, char **argv)
 	
 	init_app();
 	ascii_init();
-	//ascii_gotoXY(1,1);
+	ascii_gotoXY(1,1);
 	s = test1;
 	while( *s )
-	//	ascii_write_char( *s++ );
-	//ascii_gotoXY(1,2);
+	ascii_write_char( *s++ );
+	ascii_gotoXY(1,2);
 	s = test2;
 	while( *s )
-	//	ascii_write_char( *s++ );
+	ascii_write_char( *s++ );
 	return 0;	
 }
